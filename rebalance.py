@@ -12,6 +12,7 @@ else:
 
     binance = Client(getpass("Binance API key: "), getpass("Binance API secret: "))
 
+CHECK_INTERVAL_SECONDS = 60
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
 ARBI_RPC = "https://arb1.arbitrum.io/rpc"
@@ -30,19 +31,19 @@ BALANCE_URL = "https://blockchain.info/q/addressbalance/" + BTC_ADDRESS
 BALANCES: dict[str, float] = {"BTC": 0.0, "BUSD": 0, "ETH": 0}
 BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0}
 
-TOLERANCE = 0.02
+TOLERANCE = 0.05
 
 
 CONSTRAINTS = {
     "BTC/BUSD": {
         "ratio": 3 / 2,
-        "over": lambda: binance.create_test_order(
+        "overAction": lambda: binance.create_test_order(
             symbol=f"BTCBUSD",
             quantity=0.0008,
             side=binance.SIDE_SELL,
             type=binance.ORDER_TYPE_MARKET,
         ),
-        "under": lambda: binance.create_test_order(
+        "underAction": lambda: binance.create_test_order(
             symbol=f"BTCBUSD",
             quantity=0.0008,
             side=binance.SIDE_BUY,
@@ -51,13 +52,13 @@ CONSTRAINTS = {
     },
     "BTC/ETH": {
         "ratio": 3 / 2,
-        "over": lambda: binance.create_test_order(
+        "overAction": lambda: binance.create_test_order(
             symbol=f"ETHBTC",
             quantity=0.013,
             side=binance.SIDE_BUY,
             type=binance.ORDER_TYPE_MARKET,
         ),
-        "under": lambda: binance.create_test_order(
+        "underAction": lambda: binance.create_test_order(
             symbol=f"ETHBTC",
             quantity=0.013,
             side=binance.SIDE_SELL,
@@ -67,25 +68,19 @@ CONSTRAINTS = {
 }
 
 
-def check_constraints(constraints: dict[str, dict], balances: dict[str, float]):
+def check_constraints(constraints: dict[str, dict], balances: dict[str, float], dry_run=True):
     for key, thing in constraints.items():
         ratio = thing["ratio"]
         coin1, coin2 = key.split("/")
         actual_ratio = balances[coin1] / balances[coin2]
         # print(f"{key} current ratio: {actual_ratio:.2f}, target: {ratio:.2f}", end="\t")
         if actual_ratio > ratio * (1 + TOLERANCE):
-            pass
-            # print(f"should sell {coin1} into {coin2}")
-            # print(thing["over"]())
+            action = thing['overAction']
         elif actual_ratio < ratio * (1 - TOLERANCE):
-            pass
-            # print(f"should buy {coin1} using {coin2}")
-            # print(thing["under"]())
+            action = thing['underAction']
         else:
-            pass
-            # print(" all is going good.")
-        # print(f"\t Upper ratio: {ratio * (1+TOLERANCE):.3f}")
-        # print(f"\t Lower ratio: {ratio * (1-TOLERANCE):.3f}")
+            action = lambda: None
+        # action()
 
 
 def sat_to_btc(x):
@@ -103,7 +98,7 @@ print(
     sep=",",
 )
 
-while True:
+def main():
     cold_btc_balance = sat_to_btc(float(R.get(BALANCE_URL).text))
     binance_btc = binance.get_asset_balance("BTC")
     hot_btc_balance = float(binance_btc["free"]) + float(binance_btc["locked"])
@@ -142,4 +137,15 @@ while True:
 
     check_constraints(CONSTRAINTS, BALANCES_USD)
 
-    sleep(5)
+    sleep(CHECK_INTERVAL_SECONDS)
+
+
+while True:
+    try:
+        main()
+    except Exception as e:
+        print("ERROR:")
+        print(e)
+        print("..................................................")
+        sleep(CHECK_INTERVAL_SECONDS)
+        print(ctime(), "resuming")
