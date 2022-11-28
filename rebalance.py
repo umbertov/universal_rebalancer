@@ -1,3 +1,4 @@
+import traceback
 import sys
 from time import sleep, time, ctime
 from typing import Any
@@ -158,7 +159,6 @@ def exchange_loop(exchange):
 
     BALANCES_USD["BUSD"] = BALANCES["BUSD"]
 
-    # print(BALANCES_USD)
     date, time_secs = ctime(), time()
     print(
         date,
@@ -177,7 +177,7 @@ def exchange_loop(exchange):
         perform_actions(exchange, actions)
     else:
         for key, action in actions.items():
-            print(key, end="\n\t", file=sys.stderr)
+            print(ctime(), key, end="\n\t", file=sys.stderr)
             print(*action.items(), sep="\n\t", file=sys.stderr)
 
     sleep(CHECK_INTERVAL_SECONDS)
@@ -187,8 +187,8 @@ while True:
     try:
         exchange_loop(binance)
     except Exception as e:
-        print("ERROR:")
-        print(e)
-        print("..................................................")
+        print("ERROR:", file=sys.stderr)
+        traceback.print_exception(file=sys.stderr)
+        print("..................................................", file=sys.stderr)
         sleep(CHECK_INTERVAL_SECONDS)
-        print(ctime(), "resuming")
+        print(ctime(), "resuming", file=sys.stderr)
