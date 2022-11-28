@@ -1,17 +1,30 @@
+import sys
 from time import sleep, time, ctime
+from typing import Any
 import requests as R
 from os import environ as env
 from pandas import DataFrame
-from binance import Client
+
+# from binance import Client
 from web3 import Web3
+import ccxt
 
 if "BINANCE_KEY" in env and "BINANCE_SECRET" in env:
-    binance = Client(env["BINANCE_KEY"], env["BINANCE_SECRET"])
+    # binance = Client(env["BINANCE_KEY"], env["BINANCE_SECRET"])
+    binance = ccxt.binance(
+        {"apiKey": env["BINANCE_KEY"], "secret": env["BINANCE_SECRET"]}
+    )
 else:
     from getpass import getpass
 
-    binance = Client(getpass("Binance API key: "), getpass("Binance API secret: "))
+    binance = ccxt.binance(
+        {
+            "apiKey": getpass("Binance API key: "),
+            "secret": getpass("Binance API secret: "),
+        }
+    )
 
+DRY_RUN = True
 CHECK_INTERVAL_SECONDS = 60
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
@@ -31,56 +44,76 @@ BALANCE_URL = "https://blockchain.info/q/addressbalance/" + BTC_ADDRESS
 BALANCES: dict[str, float] = {"BTC": 0.0, "BUSD": 0, "ETH": 0}
 BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0}
 
-TOLERANCE = 0.05
+TOLERANCE = 0.1
 
 
 CONSTRAINTS = {
     "BTC/BUSD": {
         "ratio": 3 / 2,
-        "overAction": lambda: binance.create_test_order(
-            symbol=f"BTCBUSD",
-            quantity=0.0008,
-            side=binance.SIDE_SELL,
-            type=binance.ORDER_TYPE_MARKET,
+        "overAction": dict(
+            symbol=f"BTC/BUSD",
+            amount=0.0008,
+            side="sell",
+            type="market",
         ),
-        "underAction": lambda: binance.create_test_order(
-            symbol=f"BTCBUSD",
-            quantity=0.0008,
-            side=binance.SIDE_BUY,
-            type=binance.ORDER_TYPE_MARKET,
+        "underAction": dict(
+            symbol=f"BTC/BUSD",
+            amount=0.0008,
+            side="buy",
+            type="market",
         ),
     },
     "BTC/ETH": {
         "ratio": 3 / 2,
-        "overAction": lambda: binance.create_test_order(
-            symbol=f"ETHBTC",
-            quantity=0.013,
-            side=binance.SIDE_BUY,
-            type=binance.ORDER_TYPE_MARKET,
+        "overAction": dict(
+            symbol=f"ETH/BTC",
+            amount=0.013,
+            side="buy",
+            type="market",
         ),
-        "underAction": lambda: binance.create_test_order(
-            symbol=f"ETHBTC",
-            quantity=0.013,
-            side=binance.SIDE_SELL,
-            type=binance.ORDER_TYPE_MARKET,
+        "underAction": dict(
+            symbol=f"ETH/BTC",
+            amount=0.013,
+            side="sell",
+            type="market",
         ),
     },
 }
 
 
-def check_constraints(constraints: dict[str, dict], balances: dict[str, float], dry_run=True):
+def check_constraints(
+    constraints: dict[str, dict], balances: dict[str, float]
+) -> dict[str, dict[str, Any]]:
+    result = dict()
     for key, thing in constraints.items():
+
         ratio = thing["ratio"]
         coin1, coin2 = key.split("/")
+
         actual_ratio = balances[coin1] / balances[coin2]
-        # print(f"{key} current ratio: {actual_ratio:.2f}, target: {ratio:.2f}", end="\t")
-        if actual_ratio > ratio * (1 + TOLERANCE):
-            action = thing['overAction']
-        elif actual_ratio < ratio * (1 - TOLERANCE):
-            action = thing['underAction']
+
+        upper_ratio = ratio * (1 + TOLERANCE)
+        lower_ratio = ratio * (1 - TOLERANCE)
+
+        print(
+            f"{key} current ratio: {actual_ratio:.2f}, target: between {lower_ratio:.3f} and {upper_ratio:.3f}",
+            file=sys.stderr,
+        )
+
+        if actual_ratio > upper_ratio:
+            action = thing["overAction"]
+        elif actual_ratio < lower_ratio:
+            action = thing["underAction"]
         else:
             action = lambda: None
-        # action()
+        result[key] = action
+    return result
+
+
+def perform_actions(exchange, actions):
+    for params in actions.values():
+        if params:
+            return exchange.create_order(params)
 
 
 def sat_to_btc(x):
@@ -98,26 +131,29 @@ print(
     sep=",",
 )
 
-def main():
+
+def exchange_loop(exchange):
+    binance_balances = exchange.fetch_balance()
+
     cold_btc_balance = sat_to_btc(float(R.get(BALANCE_URL).text))
-    binance_btc = binance.get_asset_balance("BTC")
-    hot_btc_balance = float(binance_btc["free"]) + float(binance_btc["locked"])
+    binance_btc = binance_balances["BTC"]
+    hot_btc_balance = float(binance_btc["total"])
     BALANCES["BTC"] = cold_btc_balance + hot_btc_balance
 
-    binance_busd = binance.get_asset_balance("BUSD")
-    BALANCES["BUSD"] = float(binance_busd["free"]) + float(binance_busd["locked"])
+    binance_busd = binance_balances["BUSD"]
+    BALANCES["BUSD"] = float(binance_busd["total"])
 
-    binance_eth = binance.get_asset_balance("ETH")
-    BALANCES["ETH"] = float(binance_eth["free"]) + float(binance_eth["locked"])
+    binance_eth = binance_balances["ETH"]
+    BALANCES["ETH"] = float(binance_eth["total"])
     metamask_eth = get_metamask_eth_balance()
     BALANCES["ETH"] += metamask_eth
 
-    tickers = DataFrame(binance.get_all_tickers()).set_index("symbol").astype(float)
+    tickers = DataFrame(exchange.fetch_tickers().values()).set_index("symbol")
 
-    btc_price = tickers.loc["BTCBUSD"].item()
+    btc_price = tickers.loc["BTC/BUSD", "last"].item()
     BALANCES_USD["BTC"] = btc_price * BALANCES["BTC"]
 
-    eth_price = tickers.loc["ETHBUSD"].item()
+    eth_price = tickers.loc["ETH/BUSD", "last"].item()
     BALANCES_USD["ETH"] = eth_price * BALANCES["ETH"]
 
     BALANCES_USD["BUSD"] = BALANCES["BUSD"]
@@ -135,14 +171,21 @@ def main():
         sep=",",
     )
 
-    check_constraints(CONSTRAINTS, BALANCES_USD)
+    actions = check_constraints(CONSTRAINTS, BALANCES_USD)
+
+    if not DRY_RUN:
+        perform_actions(exchange, actions)
+    else:
+        for key, action in actions.items():
+            print(key, end="\n\t", file=sys.stderr)
+            print(*action.items(), sep="\n\t", file=sys.stderr)
 
     sleep(CHECK_INTERVAL_SECONDS)
 
 
 while True:
     try:
-        main()
+        exchange_loop(binance)
     except Exception as e:
         print("ERROR:")
         print(e)
