@@ -26,7 +26,7 @@ else:
     )
 
 DRY_RUN = True
-CHECK_INTERVAL_SECONDS = 60
+CHECK_INTERVAL_SECONDS = 30
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
 ARBI_RPC = "https://arb1.arbitrum.io/rpc"
@@ -187,8 +187,8 @@ while True:
     try:
         exchange_loop(binance)
     except Exception as e:
-        print("ERROR:", file=sys.stderr)
-        traceback.print_exception(file=sys.stderr)
+        print(f"{ctime()} ERROR:", file=sys.stderr)
+        traceback.print_exception(e, file=sys.stderr)
         print("..................................................", file=sys.stderr)
         sleep(CHECK_INTERVAL_SECONDS)
         print(ctime(), "resuming", file=sys.stderr)
