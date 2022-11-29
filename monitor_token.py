@@ -55,12 +55,12 @@ if __name__ == "__main__":
         abi=json.load(open("./abis/GLP_ABI.json")),
     )
 
-    print("Value,Price,Amount")
+    print("date,time,Value,Price,Amount")
 
     while True:
         glp_price = get_glp_price(client)
         glp_amt = get_token_balance(glp)
         glp_value = glp_price * glp_amt
 
-        print(f"{glp_value:.2f},{glp_price},{glp_amt}")
+        print(f"{ctime()},{time()},{glp_value:.2f},{glp_price},{glp_amt}")
         sleep(30)
