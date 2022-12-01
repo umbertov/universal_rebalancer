@@ -2,13 +2,20 @@ import traceback
 import sys
 from time import sleep, time, ctime
 from typing import Any
+import pandas
 import requests as R
 from os import environ as env
+from pathlib import Path
 from pandas import DataFrame
 
 # from binance import Client
 from web3 import Web3
 import ccxt
+
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+
+from .telegram_chart_bot import get_bot as get_telegram_bot, send_latest_chart
 
 if "BINANCE_KEY" in env and "BINANCE_SECRET" in env:
     # binance = Client(env["BINANCE_KEY"], env["BINANCE_SECRET"])
@@ -45,7 +52,7 @@ BALANCE_URL = "https://blockchain.info/q/addressbalance/" + BTC_ADDRESS
 BALANCES: dict[str, float] = {"BTC": 0.0, "BUSD": 0, "ETH": 0}
 BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0}
 
-TOLERANCE = 0.1
+TOLERANCE = 0.2
 
 
 CONSTRAINTS = {
@@ -173,6 +180,8 @@ def exchange_loop(exchange):
 
     actions = check_constraints(CONSTRAINTS, BALANCES_USD)
 
+    maybe_send_chart()
+
     if not DRY_RUN:
         perform_actions(exchange, actions)
     else:
@@ -181,6 +190,41 @@ def exchange_loop(exchange):
             print(*action.items(), sep="\n\t", file=sys.stderr)
 
     sleep(CHECK_INTERVAL_SECONDS)
+
+
+def maybe_send_chart():
+    chart_path = Path("latest_chart.png")
+    if not chart_path.exists():
+        make_chart()
+        return send_latest_chart()
+
+    mtime = chart_path.stat().st_mtime
+    if time() - mtime > (60 * 60):  # 1 hour
+        make_chart()
+        return send_latest_chart()
+
+
+def make_chart():
+    data: DataFrame = pandas.read_csv("balance_log.csv")
+    invalid_positions = data.time_secs.str.endswith("time_secs")
+    data = data[~invalid_positions].set_index("time_secs").drop("date", axis="columns")
+    data.index = pandas.to_datetime(data.index, unit="s")
+    data = data.astype(float)
+
+    btc_usd_ratio = data.btc_value / data.usd_balance
+    btc_eth_ratio = data.eth_value / data.usd_balance
+
+    fig = make_subplots(
+        rows=2, cols=1, subplot_titles=("BTC/BUSD ratio", "BTC/ETH ratio")
+    )
+
+    fig.add_trace(go.Scatter(x=btc_usd_ratio.index, y=btc_usd_ratio), row=1, col=1)
+    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"], line_dash="dash")
+
+    fig.add_trace(go.Scatter(x=btc_eth_ratio.index, y=btc_eth_ratio), row=2, col=1)
+    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"], line_dash="dash")
+
+    fig.write_image("latest_chart.png", width="1920", height="1080")
 
 
 while True:
