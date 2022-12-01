@@ -33,7 +33,7 @@ else:
         }
     )
 
-DRY_RUN = True
+DRY_RUN = False
 CHECK_INTERVAL_SECONDS = 30
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
@@ -120,8 +120,10 @@ def check_constraints(
 
 
 def perform_actions(exchange, actions):
-    for params in actions.values():
-        if params:
+    for key,params in actions.items():
+        print(ctime(), key, end="\n\t", file=sys.stderr)
+        print(*params.items(), sep="\n\t", file=sys.stderr)
+        if params and not DRY_RUN:
             return exchange.create_order(params)
 
 
@@ -183,12 +185,7 @@ def exchange_loop(exchange):
 
     maybe_send_chart()
 
-    if not DRY_RUN:
-        perform_actions(exchange, actions)
-    else:
-        for key, action in actions.items():
-            print(ctime(), key, end="\n\t", file=sys.stderr)
-            print(*action.items(), sep="\n\t", file=sys.stderr)
+    perform_actions(exchange, actions)
 
     sleep(CHECK_INTERVAL_SECONDS)
 
