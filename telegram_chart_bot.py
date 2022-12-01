@@ -109,7 +109,7 @@ async def main():
         await bot.send_message(text="Ao so er rebblancer!", chat_id=31088519)
 
 
-def send_chart():
+def send_latest_chart():
     asyncio.run(get_bot().send_photo(photo="latest_chart.png", chat_id=31088519))
 
 

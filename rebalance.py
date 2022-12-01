@@ -15,7 +15,7 @@ import ccxt
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-from .telegram_chart_bot import get_bot as get_telegram_bot, send_latest_chart
+from telegram_chart_bot import get_bot as get_telegram_bot, send_latest_chart
 
 if "BINANCE_KEY" in env and "BINANCE_SECRET" in env:
     # binance = Client(env["BINANCE_KEY"], env["BINANCE_SECRET"])
@@ -219,10 +219,14 @@ def make_chart():
     )
 
     fig.add_trace(go.Scatter(x=btc_usd_ratio.index, y=btc_usd_ratio), row=1, col=1)
+    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"]*(1+TOLERANCE), line_dash="dash")
     fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"], line_dash="dash")
+    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"]*(1-TOLERANCE), line_dash='dash' )
 
     fig.add_trace(go.Scatter(x=btc_eth_ratio.index, y=btc_eth_ratio), row=2, col=1)
+    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"]*(1+TOLERANCE), line_dash="dash")
     fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"], line_dash="dash")
+    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"]*(1-TOLERANCE), line_dash='dash' )
 
     fig.write_image("latest_chart.png", width="1920", height="1080")
 
