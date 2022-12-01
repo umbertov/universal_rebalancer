@@ -188,7 +188,7 @@ while True:
         exchange_loop(binance)
     except Exception as e:
         print(f"{ctime()} ERROR:", file=sys.stderr)
-        traceback.print_exception(e, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         print("..................................................", file=sys.stderr)
         sleep(CHECK_INTERVAL_SECONDS)
         print(ctime(), "resuming", file=sys.stderr)
