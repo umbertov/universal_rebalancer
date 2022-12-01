@@ -110,7 +110,7 @@ async def main():
 
 
 async def send_latest_chart():
-    asyncio.gather(
+    await asyncio.gather(
         get_bot().send_photo(photo="latest_chart.png", chat_id=31088519),
         get_bot().send_photo(photo="latest_value_chart.png", chat_id=31088519),
     )
