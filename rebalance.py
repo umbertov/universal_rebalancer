@@ -1,3 +1,4 @@
+import asyncio
 import traceback
 import sys
 from time import sleep, time, ctime
@@ -196,12 +197,12 @@ def maybe_send_chart():
     chart_path = Path("latest_chart.png")
     if not chart_path.exists():
         make_chart()
-        return send_latest_chart()
+        return asyncio.run(send_latest_chart())
 
     mtime = chart_path.stat().st_mtime
     if time() - mtime > (60 * 60):  # 1 hour
         make_chart()
-        return send_latest_chart()
+        return asyncio.run(send_latest_chart())
 
 
 def make_chart():
@@ -211,6 +212,8 @@ def make_chart():
     data.index = pandas.to_datetime(data.index, unit="s")
     data = data.astype(float)
 
+    data = data.iloc[-500000:].resample("1h").agg("last")
+
     btc_usd_ratio = data.btc_value / data.usd_balance
     btc_eth_ratio = data.eth_value / data.usd_balance
 
@@ -219,16 +222,41 @@ def make_chart():
     )
 
     fig.add_trace(go.Scatter(x=btc_usd_ratio.index, y=btc_usd_ratio), row=1, col=1)
-    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"]*(1+TOLERANCE), line_dash="dash")
-    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"], line_dash="dash")
-    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"]*(1-TOLERANCE), line_dash='dash' )
+    fig.add_hline(
+        CONSTRAINTS["BTC/BUSD"]["ratio"] * (1 + TOLERANCE),
+        line_dash="dash",
+        opacity=0.5,
+    )
+    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"], opacity=0.5)
+    fig.add_hline(
+        CONSTRAINTS["BTC/BUSD"]["ratio"] * (1 - TOLERANCE),
+        line_dash="dash",
+        opacity=0.5,
+    )
 
     fig.add_trace(go.Scatter(x=btc_eth_ratio.index, y=btc_eth_ratio), row=2, col=1)
-    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"]*(1+TOLERANCE), line_dash="dash")
-    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"], line_dash="dash")
-    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"]*(1-TOLERANCE), line_dash='dash' )
+    fig.add_hline(
+        CONSTRAINTS["BTC/ETH"]["ratio"] * (1 + TOLERANCE), line_dash="dash", opacity=0.5
+    )
+    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"], line_dash="dash", opacity=0.5)
+    fig.add_hline(
+        CONSTRAINTS["BTC/ETH"]["ratio"] * (1 - TOLERANCE), line_dash="dash", opacity=0.5
+    )
 
-    fig.write_image("latest_chart.png", width="1920", height="1080")
+    fig.write_image("latest_chart.png", width="1360", height="768")
+
+    portfolio_value = data[["btc_value", "eth_value", "usd_balance"]].sum(
+        axis="columns"
+    )
+
+    fig = make_subplots(rows=2, cols=1, subplot_titles=("Assets value", "Total value"))
+
+    fig.add_trace(go.Scatter(x=portfolio_value.index, y=portfolio_value), row=2, col=1)
+
+    fig.add_trace(go.Scatter(x=data.index, y=data.btc_value), row=1, col=1)
+    fig.add_trace(go.Scatter(x=data.index, y=data.eth_value), row=1, col=1)
+
+    fig.write_image("latest_value_chart.png", width="1360", height="768")
 
 
 while True:
