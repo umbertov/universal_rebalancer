@@ -115,6 +115,11 @@ async def send_latest_chart():
         get_bot().send_photo(photo="latest_value_chart.png", chat_id=31088519),
     )
 
+async def telegram_notify_action(action):
+    action_description = '\n'.join([
+        f'{k}: {v}' for k, v in action.items()
+    ])
+    await get_bot().send_message(text=action_description, chat_id=31088519),
 
 if __name__ == "__main__":
     asyncio.run(main())

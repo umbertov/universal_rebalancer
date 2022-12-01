@@ -16,7 +16,7 @@ import ccxt
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-from telegram_chart_bot import get_bot as get_telegram_bot, send_latest_chart
+from telegram_chart_bot import get_bot as get_telegram_bot, send_latest_chart, telegram_notify_action
 
 if "BINANCE_KEY" in env and "BINANCE_SECRET" in env:
     # binance = Client(env["BINANCE_KEY"], env["BINANCE_SECRET"])
@@ -120,11 +120,15 @@ def check_constraints(
 
 
 def perform_actions(exchange, actions):
+    res = []
     for key,params in actions.items():
         print(ctime(), key, end="\n\t", file=sys.stderr)
         print(*params.items(), sep="\n\t", file=sys.stderr)
         if params and not DRY_RUN:
-            return exchange.create_order(params)
+            order = exchange.create_order(params)
+            asyncio.run(telegram_notify_action(params))
+            res.append(order)
+    return res
 
 
 def sat_to_btc(x):
