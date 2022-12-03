@@ -16,7 +16,11 @@ import ccxt
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-from telegram_chart_bot import get_bot as get_telegram_bot, send_latest_chart, telegram_notify_action
+from telegram_chart_bot import (
+    get_bot as get_telegram_bot,
+    send_latest_chart,
+    telegram_notify_action,
+)
 
 if "BINANCE_KEY" in env and "BINANCE_SECRET" in env:
     # binance = Client(env["BINANCE_KEY"], env["BINANCE_SECRET"])
@@ -121,7 +125,7 @@ def check_constraints(
 
 def perform_actions(exchange, actions):
     res = []
-    for key,params in actions.items():
+    for key, params in actions.items():
         print(ctime(), key, end="\n\t", file=sys.stderr)
         print(*params.items(), sep="\n\t", file=sys.stderr)
         if params and not DRY_RUN:
@@ -213,7 +217,7 @@ def make_chart():
     data.index = pandas.to_datetime(data.index, unit="s")
     data = data.astype(float)
 
-    data = data.iloc[-500000:].resample("1h").agg("last")
+    data = data.iloc[-500000:].ffill().resample("1h").agg("last")
 
     btc_usd_ratio = data.btc_value / data.usd_balance
     btc_eth_ratio = data.eth_value / data.usd_balance
