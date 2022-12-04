@@ -37,8 +37,8 @@ else:
         }
     )
 
-DRY_RUN = False
-CHECK_INTERVAL_SECONDS = 30
+DRY_RUN = True
+CHECK_INTERVAL_SECONDS = 60*5
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
 ARBI_RPC = "https://arb1.arbitrum.io/rpc"
@@ -77,7 +77,7 @@ CONSTRAINTS = {
         ),
     },
     "BTC/ETH": {
-        "ratio": 3 / 2,
+        "ratio": 4 / 2,
         "overAction": dict(
             symbol=f"ETH/BTC",
             amount=0.013,
@@ -232,7 +232,7 @@ def make_chart():
         line_dash="dash",
         opacity=0.5,
     )
-    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"], opacity=0.5)
+    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"], opacity=0.5, row=1,col=1)
     fig.add_hline(
         CONSTRAINTS["BTC/BUSD"]["ratio"] * (1 - TOLERANCE),
         line_dash="dash",
@@ -243,12 +243,12 @@ def make_chart():
     fig.add_hline(
         CONSTRAINTS["BTC/ETH"]["ratio"] * (1 + TOLERANCE), line_dash="dash", opacity=0.5
     )
-    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"], line_dash="dash", opacity=0.5)
+    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"], opacity=0.5, row=2,col=1)
     fig.add_hline(
         CONSTRAINTS["BTC/ETH"]["ratio"] * (1 - TOLERANCE), line_dash="dash", opacity=0.5
     )
 
-    fig.write_image("latest_chart.png", width="1360", height="768")
+    fig.write_image("latest_chart.png", width="800", height="1000")
 
     portfolio_value = data[["btc_value", "eth_value", "usd_balance"]].sum(
         axis="columns"
@@ -261,7 +261,7 @@ def make_chart():
     fig.add_trace(go.Scatter(x=data.index, y=data.btc_value), row=1, col=1)
     fig.add_trace(go.Scatter(x=data.index, y=data.eth_value), row=1, col=1)
 
-    fig.write_image("latest_value_chart.png", width="1360", height="768")
+    fig.write_image("latest_value_chart.png", width="800", height="1000")
 
 
 while True:
