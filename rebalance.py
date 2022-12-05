@@ -37,8 +37,8 @@ else:
         }
     )
 
-DRY_RUN = True
-CHECK_INTERVAL_SECONDS = 60*5
+    DRY_RUN = False
+CHECK_INTERVAL_SECONDS = 60
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
 ARBI_RPC = "https://arb1.arbitrum.io/rpc"
@@ -77,7 +77,7 @@ CONSTRAINTS = {
         ),
     },
     "BTC/ETH": {
-        "ratio": 4 / 2,
+        "ratio": 4/2,
         "overAction": dict(
             symbol=f"ETH/BTC",
             amount=0.013,
@@ -129,9 +129,19 @@ def perform_actions(exchange, actions):
         print(ctime(), key, end="\n\t", file=sys.stderr)
         print(*params.items(), sep="\n\t", file=sys.stderr)
         if params and not DRY_RUN:
-            order = exchange.create_order(params)
-            asyncio.run(telegram_notify_action(params))
-            res.append(order)
+            symbol, side = params['symbol'], params['side']
+            ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe='1m'))
+            close = ohlcv[4]
+            mean = close.rolling(200).mean()
+            ratio = close / mean - 1
+            if side == 'buy' and ratio.iloc[-1] < -0.002:
+                order = exchange.create_order(params)
+                asyncio.run(telegram_notify_action(params))
+                res.append(order)
+            elif side == 'sell' and ratio.iloc[-1] > 0.002:
+                order = exchange.create_order(params)
+                asyncio.run(telegram_notify_action(params))
+                res.append(order)
     return res
 
 
@@ -220,7 +230,7 @@ def make_chart():
     data = data.iloc[-500000:].ffill().resample("1h").agg("last")
 
     btc_usd_ratio = data.btc_value / data.usd_balance
-    btc_eth_ratio = data.eth_value / data.usd_balance
+    btc_eth_ratio = data.btc_value / data.eth_value
 
     fig = make_subplots(
         rows=2, cols=1, subplot_titles=("BTC/BUSD ratio", "BTC/ETH ratio")
@@ -230,22 +240,22 @@ def make_chart():
     fig.add_hline(
         CONSTRAINTS["BTC/BUSD"]["ratio"] * (1 + TOLERANCE),
         line_dash="dash",
-        opacity=0.5,
+        opacity=0.5,row=1,col=1
     )
     fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"], opacity=0.5, row=1,col=1)
     fig.add_hline(
         CONSTRAINTS["BTC/BUSD"]["ratio"] * (1 - TOLERANCE),
         line_dash="dash",
-        opacity=0.5,
+        opacity=0.5,row=1,col=1
     )
 
     fig.add_trace(go.Scatter(x=btc_eth_ratio.index, y=btc_eth_ratio), row=2, col=1)
     fig.add_hline(
-        CONSTRAINTS["BTC/ETH"]["ratio"] * (1 + TOLERANCE), line_dash="dash", opacity=0.5
+        CONSTRAINTS["BTC/ETH"]["ratio"] * (1 + TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
     )
     fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"], opacity=0.5, row=2,col=1)
     fig.add_hline(
-        CONSTRAINTS["BTC/ETH"]["ratio"] * (1 - TOLERANCE), line_dash="dash", opacity=0.5
+        CONSTRAINTS["BTC/ETH"]["ratio"] * (1 - TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
     )
 
     fig.write_image("latest_chart.png", width="800", height="1000")
