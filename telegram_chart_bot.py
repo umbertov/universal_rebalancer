@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 import telegram
 import asyncio
+from sys import stderr
 
 # Enable logging
 logging.basicConfig(
@@ -29,15 +30,19 @@ async def main():
 
 async def send_latest_chart():
     async with get_bot() as bot:
+        print("telegram: sending latest charts...", file=stderr)
         await asyncio.gather(
             bot.send_photo(photo="latest_chart.png", chat_id=31088519),
             bot.send_photo(photo="latest_value_chart.png", chat_id=31088519),
             bot.send_photo(photo="latest_pie_chart.png", chat_id=31088519),
             bot.send_document(document="balance_log.csv", chat_id=31088519),
         )
+    print("telegram: done.", file=stderr)
 
 
 async def telegram_notify_action(action):
     async with get_bot() as bot:
+        print("telegram: sending action notification...", file=stderr)
         action_description = "\n".join([f"{k}: {v}" for k, v in action.items()])
         await bot.send_message(text=action_description, chat_id=31088519),
+    print("telegram: done.", file=stderr)

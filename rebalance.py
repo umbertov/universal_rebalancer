@@ -37,7 +37,8 @@ else:
         }
     )
 
-    DRY_RUN = False
+
+DRY_RUN = False
 CHECK_INTERVAL_SECONDS = 60
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
@@ -57,12 +58,12 @@ BALANCE_URL = "https://blockchain.info/q/addressbalance/" + BTC_ADDRESS
 BALANCES: dict[str, float] = {"BTC": 0.0, "BUSD": 0, "ETH": 0}
 BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0}
 
-TOLERANCE = 0.2
+TOLERANCE = 0.1
 
 
 CONSTRAINTS = {
-    "BTC/BUSD": {
-        "ratio": 3 / 2,
+    "BTC": {
+        "ratio": 1/2,
         "overAction": dict(
             symbol=f"BTC/BUSD",
             amount=0.0008,
@@ -76,18 +77,18 @@ CONSTRAINTS = {
             type="market",
         ),
     },
-    "BTC/ETH": {
-        "ratio": 3/1,
+    "ETH": {
+        "ratio": 0.15,
         "overAction": dict(
-            symbol=f"ETH/BTC",
+            symbol=f"ETH/BUSD",
             amount=0.013,
-            side="buy",
+            side="sell",
             type="market",
         ),
         "underAction": dict(
-            symbol=f"ETH/BTC",
+            symbol=f"ETH/BUSD",
             amount=0.013,
-            side="sell",
+            side="buy",
             type="market",
         ),
     },
@@ -95,21 +96,23 @@ CONSTRAINTS = {
 
 
 def check_constraints(
-    constraints: dict[str, dict], balances: dict[str, float]
+    constraints: dict[str, dict], balances_usd: dict[str, float]
 ) -> dict[str, dict[str, Any]]:
+
     result = dict()
-    for key, thing in constraints.items():
+    total_usd = sum(balances_usd.values())
+
+    for coin, thing in constraints.items():
 
         ratio = thing["ratio"]
-        coin1, coin2 = key.split("/")
 
-        actual_ratio = balances[coin1] / balances[coin2]
+        actual_ratio = balances_usd[coin] / total_usd
 
         upper_ratio = ratio * (1 + TOLERANCE)
         lower_ratio = ratio * (1 - TOLERANCE)
 
         print(
-            f"{key} current ratio: {actual_ratio:.2f}, target: between {lower_ratio:.3f} and {upper_ratio:.3f}",
+            f"{coin} current ratio: {actual_ratio:.2f}, target: between {lower_ratio:.3f} and {upper_ratio:.3f}",
             file=sys.stderr,
         )
 
@@ -119,7 +122,7 @@ def check_constraints(
             action = thing["underAction"]
         else:
             action = dict()
-        result[key] = action
+        result[coin] = action
     return result
 
 
@@ -130,14 +133,17 @@ def perform_actions(exchange, actions):
         print(*params.items(), sep="\n\t", file=sys.stderr)
         if params and not DRY_RUN:
             symbol, side = params['symbol'], params['side']
+
             ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe='1m'))
             close = ohlcv[4]
             mean = close.rolling(200).mean()
             ratio = close / mean - 1
+
             if side == 'buy' and ratio.iloc[-1] < -0.002:
                 order = exchange.create_order(**params)
                 asyncio.run(telegram_notify_action(params))
                 res.append(order)
+
             elif side == 'sell' and ratio.iloc[-1] > 0.002:
                 order = exchange.create_order(**params)
                 asyncio.run(telegram_notify_action(params))
@@ -229,33 +235,34 @@ def make_chart():
 
     data = data.iloc[-500000:].ffill().resample("1h").agg("last")
 
-    btc_usd_ratio = data.btc_value / data.usd_balance
-    btc_eth_ratio = data.btc_value / data.eth_value
+    total_usd = data.btc_value + data.usd_balance + data.eth_value
+    btc_pct = data.btc_value / total_usd
+    eth_pct = data.eth_value / total_usd
 
     fig = make_subplots(
-        rows=2, cols=1, subplot_titles=("BTC/BUSD ratio", "BTC/ETH ratio")
+        rows=2, cols=1, subplot_titles=("BTC alloc pct", "ETH alloc pct")
     )
 
-    fig.add_trace(go.Scatter(x=btc_usd_ratio.index, y=btc_usd_ratio), row=1, col=1)
+    fig.add_trace(go.Scatter(x=btc_pct.index, y=btc_pct), row=1, col=1)
     fig.add_hline(
-        CONSTRAINTS["BTC/BUSD"]["ratio"] * (1 + TOLERANCE),
+        CONSTRAINTS["BTC"]["ratio"] * (1 + TOLERANCE),
         line_dash="dash",
         opacity=0.5,row=1,col=1
     )
-    fig.add_hline(CONSTRAINTS["BTC/BUSD"]["ratio"], opacity=0.5, row=1,col=1)
+    fig.add_hline(CONSTRAINTS["BTC"]["ratio"], opacity=0.5, row=1,col=1)
     fig.add_hline(
-        CONSTRAINTS["BTC/BUSD"]["ratio"] * (1 - TOLERANCE),
+        CONSTRAINTS["BTC"]["ratio"] * (1 - TOLERANCE),
         line_dash="dash",
         opacity=0.5,row=1,col=1
     )
 
-    fig.add_trace(go.Scatter(x=btc_eth_ratio.index, y=btc_eth_ratio), row=2, col=1)
+    fig.add_trace(go.Scatter(x=eth_pct.index, y=eth_pct), row=2, col=1)
     fig.add_hline(
-        CONSTRAINTS["BTC/ETH"]["ratio"] * (1 + TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
+        CONSTRAINTS["ETH"]["ratio"] * (1 + TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
     )
-    fig.add_hline(CONSTRAINTS["BTC/ETH"]["ratio"], opacity=0.5, row=2,col=1)
+    fig.add_hline(CONSTRAINTS["ETH"]["ratio"], opacity=0.5, row=2,col=1)
     fig.add_hline(
-        CONSTRAINTS["BTC/ETH"]["ratio"] * (1 - TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
+        CONSTRAINTS["ETH"]["ratio"] * (1 - TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
     )
 
     fig.write_image("latest_chart.png", width="800", height="1000")
