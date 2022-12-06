@@ -32,6 +32,7 @@ async def send_latest_chart():
         await asyncio.gather(
             bot.send_photo(photo="latest_chart.png", chat_id=31088519),
             bot.send_photo(photo="latest_value_chart.png", chat_id=31088519),
+            bot.send_document(document="balance_log.csv", chat_id=31088519),
         )
 
 
