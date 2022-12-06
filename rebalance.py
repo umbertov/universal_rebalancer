@@ -135,11 +135,11 @@ def perform_actions(exchange, actions):
             mean = close.rolling(200).mean()
             ratio = close / mean - 1
             if side == 'buy' and ratio.iloc[-1] < -0.002:
-                order = exchange.create_order(params)
+                order = exchange.create_order(**params)
                 asyncio.run(telegram_notify_action(params))
                 res.append(order)
             elif side == 'sell' and ratio.iloc[-1] > 0.002:
-                order = exchange.create_order(params)
+                order = exchange.create_order(**params)
                 asyncio.run(telegram_notify_action(params))
                 res.append(order)
     return res
