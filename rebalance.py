@@ -77,7 +77,7 @@ CONSTRAINTS = {
         ),
     },
     "BTC/ETH": {
-        "ratio": 4/2,
+        "ratio": 3/1,
         "overAction": dict(
             symbol=f"ETH/BTC",
             amount=0.013,
@@ -118,7 +118,7 @@ def check_constraints(
         elif actual_ratio < lower_ratio:
             action = thing["underAction"]
         else:
-            action = lambda: None
+            action = dict()
         result[key] = action
     return result
 
@@ -272,6 +272,12 @@ def make_chart():
     fig.add_trace(go.Scatter(x=data.index, y=data.eth_value), row=1, col=1)
 
     fig.write_image("latest_value_chart.png", width="800", height="1000")
+
+
+    fig = go.Figure(go.Pie(labels=list(BALANCES_USD.keys()), values=list(BALANCES_USD.values())))
+    fig.update_layout(title="Allocation Pie Chart")
+    fig.write_image("latest_pie_chart.png", width="1000", height="1000")
+
 
 
 while True:
