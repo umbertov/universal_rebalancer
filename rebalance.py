@@ -58,12 +58,12 @@ BALANCE_URL = "https://blockchain.info/q/addressbalance/" + BTC_ADDRESS
 BALANCES: dict[str, float] = {"BTC": 0.0, "BUSD": 0, "ETH": 0}
 BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0}
 
-TOLERANCE = 0.1
+TOLERANCE = 0.05
 
 
 CONSTRAINTS = {
     "BTC": {
-        "ratio": 1/2,
+        "ratio": 0.55,
         "overAction": dict(
             symbol=f"BTC/BUSD",
             amount=0.0008,
@@ -94,6 +94,11 @@ CONSTRAINTS = {
     },
 }
 
+
+LAST_TRADES = {
+        'BTC': 0.,
+        'ETH': 0.,
+}
 
 def check_constraints(
     constraints: dict[str, dict], balances_usd: dict[str, float]
@@ -139,15 +144,23 @@ def perform_actions(exchange, actions):
             mean = close.rolling(200).mean()
             ratio = close / mean - 1
 
+            now = time()
             if side == 'buy' and ratio.iloc[-1] < -0.002:
-                order = exchange.create_order(**params)
-                asyncio.run(telegram_notify_action(params))
-                res.append(order)
+                if now - LAST_TRADES[symbol] > (4*60*60): # 4 hours
+                    order = exchange.create_order(**params)
+                    LAST_TRADES[symbol] = now
+                    asyncio.run(telegram_notify_action(params))
+                    res.append(order)
 
             elif side == 'sell' and ratio.iloc[-1] > 0.002:
-                order = exchange.create_order(**params)
-                asyncio.run(telegram_notify_action(params))
-                res.append(order)
+                if now - LAST_TRADES[symbol] > (4*60*60): # 4 hours
+                    order = exchange.create_order(**params)
+                    LAST_TRADES[symbol] = now
+                    asyncio.run(telegram_notify_action(params))
+                    res.append(order)
+            else:
+                print(f"not sending action because ratio is {ratio.iloc[-1]}", file=sys.stderr)
+
     return res
 
 
