@@ -138,6 +138,7 @@ def perform_actions(exchange, actions):
         print(*params.items(), sep="\n\t", file=sys.stderr)
         if params and not DRY_RUN:
             symbol, side = params['symbol'], params['side']
+            coin, quote = symbol.split("/")
 
             ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe='1m'))
             close = ohlcv[4]
@@ -146,16 +147,16 @@ def perform_actions(exchange, actions):
 
             now = time()
             if side == 'buy' and ratio.iloc[-1] < -0.002:
-                if now - LAST_TRADES[symbol] > (4*60*60): # 4 hours
+                if now - LAST_TRADES[coin] > (4*60*60): # 4 hours
                     order = exchange.create_order(**params)
-                    LAST_TRADES[symbol] = now
+                    LAST_TRADES[coin] = now
                     asyncio.run(telegram_notify_action(params))
                     res.append(order)
 
             elif side == 'sell' and ratio.iloc[-1] > 0.002:
-                if now - LAST_TRADES[symbol] > (4*60*60): # 4 hours
+                if now - LAST_TRADES[coin] > (4*60*60): # 4 hours
                     order = exchange.create_order(**params)
-                    LAST_TRADES[symbol] = now
+                    LAST_TRADES[coin] = now
                     asyncio.run(telegram_notify_action(params))
                     res.append(order)
             else:
