@@ -229,7 +229,7 @@ def exchange_loop(exchange):
 
 
 def maybe_send_chart():
-    chart_path = Path("latest_chart.png")
+    chart_path = Path("latest_chart.jpg")
     if not chart_path.exists():
         make_chart()
         return asyncio.run(send_latest_chart())
@@ -253,6 +253,7 @@ def make_chart():
     btc_pct = data.btc_value / total_usd
     eth_pct = data.eth_value / total_usd
 
+    ############### ALLOCATION PCT TIME SERIES
     fig = make_subplots(
         rows=2, cols=1, subplot_titles=("BTC alloc pct", "ETH alloc pct")
     )
@@ -279,8 +280,9 @@ def make_chart():
         CONSTRAINTS["ETH"]["ratio"] * (1 - TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
     )
 
-    fig.write_image("latest_chart.png", width="800", height="1000")
+    fig.write_image("latest_chart.jpg", width="800", height="1000")
 
+    ############### ASSET USD VALUE TIME SERIES
     portfolio_value = data[["btc_value", "eth_value", "usd_balance"]].sum(
         axis="columns"
     )
@@ -292,12 +294,12 @@ def make_chart():
     fig.add_trace(go.Scatter(x=data.index, y=data.btc_value), row=1, col=1)
     fig.add_trace(go.Scatter(x=data.index, y=data.eth_value), row=1, col=1)
 
-    fig.write_image("latest_value_chart.png", width="800", height="1000")
+    fig.write_image("latest_value_chart.jpg", width="800", height="1000")
 
-
+    ############### ALLOCATION PIE CHART
     fig = go.Figure(go.Pie(labels=list(BALANCES_USD.keys()), values=list(BALANCES_USD.values())))
     fig.update_layout(title="Allocation Pie Chart")
-    fig.write_image("latest_pie_chart.png", width="1000", height="1000")
+    fig.write_image("latest_pie_chart.jpg", width="1000", height="1000")
 
 
 

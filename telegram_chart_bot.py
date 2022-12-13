@@ -5,6 +5,7 @@ from typing import Optional
 import telegram
 import asyncio
 from sys import stderr
+from pathlib import Path
 
 # Enable logging
 logging.basicConfig(
@@ -31,13 +32,15 @@ async def main():
 async def send_latest_chart():
     async with get_bot() as bot:
         print("telegram: sending latest charts...", file=stderr)
-        await asyncio.gather(
-            bot.send_photo(photo="latest_chart.png", chat_id=31088519),
-            bot.send_photo(photo="latest_value_chart.png", chat_id=31088519),
-            bot.send_photo(photo="latest_pie_chart.png", chat_id=31088519),
-            bot.send_document(document="balance_log.csv", chat_id=31088519),
-            bot.send_document(document="log.stderr", chat_id=31088519),
-        )
+        await bot.send_media_group(chat_id=31088519, media = [
+            telegram.InputMediaPhoto(Path("latest_chart.jpg").open('rb')),
+            telegram.InputMediaPhoto(Path("latest_value_chart.jpg").open('rb')),
+            telegram.InputMediaPhoto(Path("latest_pie_chart.jpg").open('rb')),
+        ])
+        await bot.send_media_group(chat_id=31088519, media = [
+            telegram.InputMediaDocument(Path("balance_log.csv").open('rb')),
+            telegram.InputMediaDocument(Path("log.stderr").open('rb')),
+        ])
     print("telegram: done.", file=stderr)
 
 
