@@ -73,7 +73,7 @@ TOLERANCE = 0.05
 
 CONSTRAINTS = {
     "BTC": {
-        "ratio": 0.55,
+        "ratio": 0.5,
         "overAction": dict(
             symbol=f"BTC/BUSD",
             amount=0.0008,
@@ -305,6 +305,17 @@ def make_chart():
         row=2,
         col=1,
     )
+    # add traces for annotations and text for end of lines
+    for i, d in enumerate(fig.data):
+        fig.add_scatter(x=[d.x[-1]], y = [d.y[-1]],
+                        mode = 'markers+text',
+                        text = d.y[-1],
+                        textfont = dict(color=d.line.color),
+                        textposition='middle right',
+                        marker = dict(color = d.line.color, size = 12),
+                        legendgroup = d.name,
+                        yaxis=d.yaxis,
+                        showlegend=False)
 
     fig.write_image("latest_chart.jpg", width="800", height="1000")
 
@@ -319,6 +330,18 @@ def make_chart():
 
     fig.add_trace(go.Scatter(x=data.index, y=data.btc_value), row=1, col=1)
     fig.add_trace(go.Scatter(x=data.index, y=data.eth_value), row=1, col=1)
+
+    # add traces for annotations and text for end of lines
+    for i, d in enumerate(fig.data):
+        fig.add_scatter(x=[d.x[-1]], y = [d.y[-1]],
+                        mode = 'markers+text',
+                        text = d.y[-1],
+                        textfont = dict(color=d.line.color),
+                        textposition='middle right',
+                        marker = dict(color = d.line.color, size = 12),
+                        legendgroup = d.name,
+                        yaxis=d.yaxis,
+                        showlegend=False)
 
     fig.write_image("latest_value_chart.jpg", width="800", height="1000")
 
