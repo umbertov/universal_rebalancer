@@ -307,15 +307,19 @@ def make_chart():
     )
     # add traces for annotations and text for end of lines
     for i, d in enumerate(fig.data):
-        fig.add_scatter(x=[d.x[-1]], y = [d.y[-1]],
-                        mode = 'markers+text',
-                        text = d.y[-1],
-                        textfont = dict(color=d.line.color),
-                        textposition='middle right',
-                        marker = dict(color = d.line.color, size = 12),
-                        legendgroup = d.name,
-                        yaxis=d.yaxis,
-                        showlegend=False)
+        fig.add_scatter(
+            x=[d.x[-1]],
+            y=[d.y[-1]],
+            mode="markers+text",
+            text=d.y[-1],
+            textfont=dict(color=d.line.color),
+            textposition="middle right",
+            marker=dict(color=d.line.color, size=12),
+            legendgroup=d.name,
+            yaxis=d.yaxis,
+            xaxis=d.xaxis,
+            showlegend=False,
+        )
 
     fig.write_image("latest_chart.jpg", width="800", height="1000")
 
@@ -333,15 +337,19 @@ def make_chart():
 
     # add traces for annotations and text for end of lines
     for i, d in enumerate(fig.data):
-        fig.add_scatter(x=[d.x[-1]], y = [d.y[-1]],
-                        mode = 'markers+text',
-                        text = d.y[-1],
-                        textfont = dict(color=d.line.color),
-                        textposition='middle right',
-                        marker = dict(color = d.line.color, size = 12),
-                        legendgroup = d.name,
-                        yaxis=d.yaxis,
-                        showlegend=False)
+        fig.add_scatter(
+            x=[d.x[-1]],
+            y=[d.y[-1]],
+            mode="markers+text",
+            text=d.y[-1],
+            textfont=dict(color=d.line.color),
+            textposition="middle right",
+            marker=dict(color=d.line.color, size=12),
+            legendgroup=d.name,
+            yaxis=d.yaxis,
+            xaxis=d.yaxis,
+            showlegend=False,
+        )
 
     fig.write_image("latest_value_chart.jpg", width="800", height="1000")
 
