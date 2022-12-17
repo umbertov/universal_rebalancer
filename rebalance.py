@@ -43,12 +43,22 @@ CHECK_INTERVAL_SECONDS = 60
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
 ARBI_RPC = "https://arb1.arbitrum.io/rpc"
+ETHEREUM_RPC = "https://rpc.builder0x69.io"
+
 arbi = Web3(Web3.HTTPProvider(ARBI_RPC))
+ethereum = Web3(Web3.HTTPProvider(ARBI_RPC))
 
 
 def get_metamask_eth_balance():
-    bal_wei = arbi.eth.getBalance(METAMASK_ADDRESS)
-    bal_eth = arbi.fromWei(bal_wei, "ether")
+    arbi_eth = get_ether_balance(arbi)
+    ethereum_eth = get_ether_balance(ethereum)
+    bal_eth = sum((arbi_eth, ethereum_eth))
+    return float(bal_eth)
+
+
+def get_ether_balance(client: Web3):
+    bal_wei = client.eth.getBalance(METAMASK_ADDRESS)
+    bal_eth = client.fromWei(bal_wei, "ether")
     return float(bal_eth)
 
 
@@ -96,9 +106,10 @@ CONSTRAINTS = {
 
 
 LAST_TRADES = {
-        'BTC': 0.,
-        'ETH': 0.,
+    "BTC": 0.0,
+    "ETH": 0.0,
 }
+
 
 def check_constraints(
     constraints: dict[str, dict], balances_usd: dict[str, float]
@@ -137,30 +148,33 @@ def perform_actions(exchange, actions):
         print(ctime(), key, end="\n\t", file=sys.stderr)
         print(*params.items(), sep="\n\t", file=sys.stderr)
         if params and not DRY_RUN:
-            symbol, side = params['symbol'], params['side']
+            symbol, side = params["symbol"], params["side"]
             coin, quote = symbol.split("/")
 
-            ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe='1m'))
+            ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe="1m"))
             close = ohlcv[4]
             mean = close.rolling(200).mean()
             ratio = close / mean - 1
 
             now = time()
-            if side == 'buy' and ratio.iloc[-1] < -0.002:
-                if now - LAST_TRADES[coin] > (4*60*60): # 4 hours
+            if side == "buy" and ratio.iloc[-1] < -0.002:
+                if now - LAST_TRADES[coin] > (4 * 60 * 60):  # 4 hours
                     order = exchange.create_order(**params)
                     LAST_TRADES[coin] = now
                     asyncio.run(telegram_notify_action(params))
                     res.append(order)
 
-            elif side == 'sell' and ratio.iloc[-1] > 0.002:
-                if now - LAST_TRADES[coin] > (4*60*60): # 4 hours
+            elif side == "sell" and ratio.iloc[-1] > 0.002:
+                if now - LAST_TRADES[coin] > (4 * 60 * 60):  # 4 hours
                     order = exchange.create_order(**params)
                     LAST_TRADES[coin] = now
                     asyncio.run(telegram_notify_action(params))
                     res.append(order)
             else:
-                print(f"not sending action because ratio is {ratio.iloc[-1]}", file=sys.stderr)
+                print(
+                    f"not sending action because ratio is {ratio.iloc[-1]}",
+                    file=sys.stderr,
+                )
 
     return res
 
@@ -262,22 +276,34 @@ def make_chart():
     fig.add_hline(
         CONSTRAINTS["BTC"]["ratio"] * (1 + TOLERANCE),
         line_dash="dash",
-        opacity=0.5,row=1,col=1
+        opacity=0.5,
+        row=1,
+        col=1,
     )
-    fig.add_hline(CONSTRAINTS["BTC"]["ratio"], opacity=0.5, row=1,col=1)
+    fig.add_hline(CONSTRAINTS["BTC"]["ratio"], opacity=0.5, row=1, col=1)
     fig.add_hline(
         CONSTRAINTS["BTC"]["ratio"] * (1 - TOLERANCE),
         line_dash="dash",
-        opacity=0.5,row=1,col=1
+        opacity=0.5,
+        row=1,
+        col=1,
     )
 
     fig.add_trace(go.Scatter(x=eth_pct.index, y=eth_pct), row=2, col=1)
     fig.add_hline(
-        CONSTRAINTS["ETH"]["ratio"] * (1 + TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
+        CONSTRAINTS["ETH"]["ratio"] * (1 + TOLERANCE),
+        line_dash="dash",
+        opacity=0.5,
+        row=2,
+        col=1,
     )
-    fig.add_hline(CONSTRAINTS["ETH"]["ratio"], opacity=0.5, row=2,col=1)
+    fig.add_hline(CONSTRAINTS["ETH"]["ratio"], opacity=0.5, row=2, col=1)
     fig.add_hline(
-        CONSTRAINTS["ETH"]["ratio"] * (1 - TOLERANCE), line_dash="dash", opacity=0.5,row=2,col=1
+        CONSTRAINTS["ETH"]["ratio"] * (1 - TOLERANCE),
+        line_dash="dash",
+        opacity=0.5,
+        row=2,
+        col=1,
     )
 
     fig.write_image("latest_chart.jpg", width="800", height="1000")
@@ -297,10 +323,11 @@ def make_chart():
     fig.write_image("latest_value_chart.jpg", width="800", height="1000")
 
     ############### ALLOCATION PIE CHART
-    fig = go.Figure(go.Pie(labels=list(BALANCES_USD.keys()), values=list(BALANCES_USD.values())))
+    fig = go.Figure(
+        go.Pie(labels=list(BALANCES_USD.keys()), values=list(BALANCES_USD.values()))
+    )
     fig.update_layout(title="Allocation Pie Chart")
     fig.write_image("latest_pie_chart.jpg", width="1000", height="1000")
-
 
 
 while True:
