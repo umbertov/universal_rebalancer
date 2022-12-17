@@ -347,7 +347,7 @@ def make_chart():
             marker=dict(color=d.line.color, size=12),
             legendgroup=d.name,
             yaxis=d.yaxis,
-            xaxis=d.yaxis,
+            xaxis=d.xaxis,
             showlegend=False,
         )
 
