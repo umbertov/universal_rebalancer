@@ -46,7 +46,7 @@ ARBI_RPC = "https://arb1.arbitrum.io/rpc"
 ETHEREUM_RPC = "https://rpc.builder0x69.io"
 
 arbi = Web3(Web3.HTTPProvider(ARBI_RPC))
-ethereum = Web3(Web3.HTTPProvider(ARBI_RPC))
+ethereum = Web3(Web3.HTTPProvider(ETHEREUM_RPC))
 
 
 def get_metamask_eth_balance():
