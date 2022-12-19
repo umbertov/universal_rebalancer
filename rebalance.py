@@ -68,12 +68,11 @@ BALANCE_URL = "https://blockchain.info/q/addressbalance/" + BTC_ADDRESS
 BALANCES: dict[str, float] = {"BTC": 0.0, "BUSD": 0, "ETH": 0}
 BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0}
 
-TOLERANCE = 0.05
-
 
 CONSTRAINTS = {
     "BTC": {
         "ratio": 0.5,
+        "tolerance": 0.05,
         "overAction": dict(
             symbol=f"BTC/BUSD",
             amount=0.0008,
@@ -89,6 +88,7 @@ CONSTRAINTS = {
     },
     "ETH": {
         "ratio": 0.15,
+        "tolerance": 0.08,
         "overAction": dict(
             symbol=f"ETH/BUSD",
             amount=0.013,
@@ -124,8 +124,9 @@ def check_constraints(
 
         actual_ratio = balances_usd[coin] / total_usd
 
-        upper_ratio = ratio * (1 + TOLERANCE)
-        lower_ratio = ratio * (1 - TOLERANCE)
+        tolerance = thing["tolerance"]
+        upper_ratio = ratio * (1 + tolerance)
+        lower_ratio = ratio * (1 - tolerance)
 
         print(
             f"{coin} current ratio: {actual_ratio:.2f}, target: between {lower_ratio:.3f} and {upper_ratio:.3f}",
@@ -274,7 +275,7 @@ def make_chart():
 
     fig.add_trace(go.Scatter(x=btc_pct.index, y=btc_pct), row=1, col=1)
     fig.add_hline(
-        CONSTRAINTS["BTC"]["ratio"] * (1 + TOLERANCE),
+        CONSTRAINTS["BTC"]["ratio"] * (1 + CONSTRAINTS["BTC"]["tolerance"]),
         line_dash="dash",
         opacity=0.5,
         row=1,
@@ -282,7 +283,7 @@ def make_chart():
     )
     fig.add_hline(CONSTRAINTS["BTC"]["ratio"], opacity=0.5, row=1, col=1)
     fig.add_hline(
-        CONSTRAINTS["BTC"]["ratio"] * (1 - TOLERANCE),
+        CONSTRAINTS["BTC"]["ratio"] * (1 - CONSTRAINTS["BTC"]["tolerance"]),
         line_dash="dash",
         opacity=0.5,
         row=1,
@@ -291,7 +292,7 @@ def make_chart():
 
     fig.add_trace(go.Scatter(x=eth_pct.index, y=eth_pct), row=2, col=1)
     fig.add_hline(
-        CONSTRAINTS["ETH"]["ratio"] * (1 + TOLERANCE),
+        CONSTRAINTS["ETH"]["ratio"] * (1 + CONSTRAINTS["ETH"]["tolerance"]),
         line_dash="dash",
         opacity=0.5,
         row=2,
@@ -299,7 +300,7 @@ def make_chart():
     )
     fig.add_hline(CONSTRAINTS["ETH"]["ratio"], opacity=0.5, row=2, col=1)
     fig.add_hline(
-        CONSTRAINTS["ETH"]["ratio"] * (1 - TOLERANCE),
+        CONSTRAINTS["ETH"]["ratio"] * (1 - CONSTRAINTS["ETH"]["tolerance"]),
         line_dash="dash",
         opacity=0.5,
         row=2,
