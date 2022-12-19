@@ -40,6 +40,8 @@ else:
 
 DRY_RUN = False
 CHECK_INTERVAL_SECONDS = 60
+TRADES_COOLOFF_SECONDS = 4 * 60 * 60  # 4 hours
+MEAN_RATIO_THRESHOLD = 0.002
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
 ARBI_RPC = "https://arb1.arbitrum.io/rpc"
@@ -158,15 +160,15 @@ def perform_actions(exchange, actions):
             ratio = close / mean - 1
 
             now = time()
-            if side == "buy" and ratio.iloc[-1] < -0.002:
-                if now - LAST_TRADES[coin] > (4 * 60 * 60):  # 4 hours
+            if side == "buy" and ratio.iloc[-1] < -MEAN_RATIO_THRESHOLD:
+                if now - LAST_TRADES[coin] > (TRADES_COOLOFF_SECONDS):
                     order = exchange.create_order(**params)
                     LAST_TRADES[coin] = now
                     asyncio.run(telegram_notify_action(params))
                     res.append(order)
 
-            elif side == "sell" and ratio.iloc[-1] > 0.002:
-                if now - LAST_TRADES[coin] > (4 * 60 * 60):  # 4 hours
+            elif side == "sell" and ratio.iloc[-1] > MEAN_RATIO_THRESHOLD:
+                if now - LAST_TRADES[coin] > (TRADES_COOLOFF_SECONDS):
                     order = exchange.create_order(**params)
                     LAST_TRADES[coin] = now
                     asyncio.run(telegram_notify_action(params))
