@@ -40,7 +40,7 @@ else:
 
 DRY_RUN = False
 CHECK_INTERVAL_SECONDS = 60
-TRADES_COOLOFF_SECONDS = 4 * 60 * 60  # 4 hours
+TRADES_COOLOFF_SECONDS = 24 * 60 * 60  # 24 hours
 MEAN_RATIO_THRESHOLD = 0.002
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
@@ -74,7 +74,7 @@ BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0}
 CONSTRAINTS = {
     "BTC": {
         "ratio": 0.5,
-        "tolerance": 0.05,
+        "tolerance": 0.06,
         "overAction": dict(
             symbol=f"BTC/BUSD",
             amount=0.0008,
@@ -89,8 +89,8 @@ CONSTRAINTS = {
         ),
     },
     "ETH": {
-        "ratio": 0.15,
-        "tolerance": 0.08,
+        "ratio": 0.2,
+        "tolerance": 0.1,
         "overAction": dict(
             symbol=f"ETH/BUSD",
             amount=0.013,
@@ -247,14 +247,14 @@ def exchange_loop(exchange):
 
 def maybe_send_chart():
     chart_path = Path("latest_chart.jpg")
-    if not chart_path.exists():
+    if (not chart_path.exists()) or time() - chart_path.stat().st_mtime > SEND_CHART_INTERVAL:
         make_chart()
         return asyncio.run(send_latest_chart())
 
-    mtime = chart_path.stat().st_mtime
-    if time() - mtime > (60 * 60):  # 1 hour
-        make_chart()
-        return asyncio.run(send_latest_chart())
+    # mtime = chart_path.stat().st_mtime
+    # if time() - mtime > (60 * 60):  # 1 hour
+    #     make_chart()
+    #     return asyncio.run(send_latest_chart())
 
 
 def make_chart():
@@ -264,7 +264,7 @@ def make_chart():
     data.index = pandas.to_datetime(data.index, unit="s")
     data = data.astype(float)
 
-    data = data.iloc[-500000:].ffill().resample("1h").agg("last")
+    data = data.iloc[-500000:].ffill().resample("5min").agg("last").ffill()
 
     total_usd = data.btc_value + data.usd_balance + data.eth_value
     btc_pct = data.btc_value / total_usd
