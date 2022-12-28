@@ -41,11 +41,13 @@ else:
 DRY_RUN = False
 CHECK_INTERVAL_SECONDS = 60
 TRADES_COOLOFF_SECONDS = 24 * 60 * 60  # 24 hours
+SEND_CHART_INTERVAL = 60 * 60 * 2
 MEAN_RATIO_THRESHOLD = 0.002
 
 METAMASK_ADDRESS = "0x57D09090dD2b531b4ed6e9c125f52B9651851Afd"
 ARBI_RPC = "https://arb1.arbitrum.io/rpc"
 ETHEREUM_RPC = "https://rpc.builder0x69.io"
+
 
 arbi = Web3(Web3.HTTPProvider(ARBI_RPC))
 ethereum = Web3(Web3.HTTPProvider(ETHEREUM_RPC))
@@ -59,7 +61,7 @@ def get_metamask_eth_balance():
 
 
 def get_ether_balance(client: Web3):
-    bal_wei = client.eth.getBalance(METAMASK_ADDRESS)
+    bal_wei = client.eth.getBalance(METAMASK_ADDRESS) or 0
     bal_eth = client.fromWei(bal_wei, "ether")
     return float(bal_eth)
 
