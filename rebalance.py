@@ -115,7 +115,7 @@ CONSTRAINTS = {
             side="sell",
             type="market",
             ma_timeframe="5m",
-            ma_ratio_threshold=0.01,
+            ma_ratio_threshold=0.005,
         ),
         "underAction": dict(
             symbol=f"FTM/BTC",
@@ -123,7 +123,7 @@ CONSTRAINTS = {
             side="buy",
             type="market",
             ma_timeframe="5m",
-            ma_ratio_threshold=0.01,
+            ma_ratio_threshold=0.005,
         ),
     },
 }
