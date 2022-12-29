@@ -154,7 +154,7 @@ def check_constraints(
         lower_ratio = ratio * (1 - tolerance)
 
         print(
-            f"{coin} current ratio: {actual_ratio:.2f}, target: between {lower_ratio:.3f} and {upper_ratio:.3f}",
+            f"{coin} current ratio: {actual_ratio:.3f}, target: between {lower_ratio:.3f} and {upper_ratio:.3f}",
             file=sys.stderr,
         )
 
@@ -177,20 +177,27 @@ def perform_actions(exchange, actions):
             symbol, side = params["symbol"], params["side"]
             coin, quote = symbol.split("/")
 
-            ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe=params.pop("ma_timeframe", "1m")))
+            if 'ma_timeframe' in params:
+                ma_timeframe = params['ma_timeframe']
+            else:
+                ma_timeframe = '1m'
+            print("choosing ma_timeframe = ", ma_timeframe, "for symbol", symbol, file=sys.stderr)
+
+            ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe=ma_timeframe))
             close = ohlcv[4]
             mean = close.rolling(200).mean()
             ratio = close / mean - 1
 
             now = time()
-            if side == "buy" and ratio.iloc[-1] < -params.pop("ma_ratio_threshold", MEAN_RATIO_THRESHOLD):
+            mean_ratio_threshold = params.pop("ma_ratio_threshold", MEAN_RATIO_THRESHOLD)
+            if side == "buy" and ratio.iloc[-1] < -mean_ratio_threshold:
                 if now - LAST_TRADES[coin] > (TRADES_COOLOFF_SECONDS):
                     order = exchange.create_order(**params)
                     LAST_TRADES[coin] = now
                     asyncio.run(telegram_notify_action(params))
                     res.append(order)
 
-            elif side == "sell" and ratio.iloc[-1] >  params.pop("ma_ratio_threshold", MEAN_RATIO_THRESHOLD):
+            elif side == "sell" and ratio.iloc[-1] >  mean_ratio_threshold:
                 if now - LAST_TRADES[coin] > (TRADES_COOLOFF_SECONDS):
                     order = exchange.create_order(**params)
                     LAST_TRADES[coin] = now
