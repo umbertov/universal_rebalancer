@@ -69,8 +69,8 @@ def get_ether_balance(client: Web3):
 BTC_ADDRESS = "bc1qkp4mydvu4f62kgfkxyw85g94j5lt568h6aq627"
 BALANCE_URL = "https://blockchain.info/q/addressbalance/" + BTC_ADDRESS
 
-BALANCES: dict[str, float] = {"BTC": 0.0, "BUSD": 0, "ETH": 0}
-BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0}
+BALANCES: dict[str, float] = {"BTC": 0.0, "BUSD": 0, "ETH": 0, "FTM": 0}
+BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0, "FTM": 0}
 
 
 CONSTRAINTS = {
@@ -95,15 +95,35 @@ CONSTRAINTS = {
         "tolerance": 0.1,
         "overAction": dict(
             symbol=f"ETH/BUSD",
-            amount=0.013,
+            amount=0.012,
             side="sell",
             type="market",
         ),
         "underAction": dict(
             symbol=f"ETH/BUSD",
-            amount=0.013,
+            amount=0.012,
             side="buy",
             type="market",
+        ),
+    },
+    "FTM": {
+        "ratio": 0.02,
+        "tolerance": 0.1,
+        "overAction": dict(
+            symbol=f"FTM/BTC",
+            amount=20,
+            side="sell",
+            type="market",
+            ma_timeframe="5m",
+            ma_ratio_threshold=0.01,
+        ),
+        "underAction": dict(
+            symbol=f"FTM/BTC",
+            amount=20,
+            side="buy",
+            type="market",
+            ma_timeframe="5m",
+            ma_ratio_threshold=0.01,
         ),
     },
 }
@@ -112,6 +132,7 @@ CONSTRAINTS = {
 LAST_TRADES = {
     "BTC": 0.0,
     "ETH": 0.0,
+    "FTM": 0.0,
 }
 
 
@@ -156,20 +177,20 @@ def perform_actions(exchange, actions):
             symbol, side = params["symbol"], params["side"]
             coin, quote = symbol.split("/")
 
-            ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe="1m"))
+            ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe=params.pop("ma_timeframe", "1m")))
             close = ohlcv[4]
             mean = close.rolling(200).mean()
             ratio = close / mean - 1
 
             now = time()
-            if side == "buy" and ratio.iloc[-1] < -MEAN_RATIO_THRESHOLD:
+            if side == "buy" and ratio.iloc[-1] < -params.pop("ma_ratio_threshold", MEAN_RATIO_THRESHOLD):
                 if now - LAST_TRADES[coin] > (TRADES_COOLOFF_SECONDS):
                     order = exchange.create_order(**params)
                     LAST_TRADES[coin] = now
                     asyncio.run(telegram_notify_action(params))
                     res.append(order)
 
-            elif side == "sell" and ratio.iloc[-1] > MEAN_RATIO_THRESHOLD:
+            elif side == "sell" and ratio.iloc[-1] >  params.pop("ma_ratio_threshold", MEAN_RATIO_THRESHOLD):
                 if now - LAST_TRADES[coin] > (TRADES_COOLOFF_SECONDS):
                     order = exchange.create_order(**params)
                     LAST_TRADES[coin] = now
@@ -196,6 +217,8 @@ print(
     "eth_balance",
     "eth_value",
     "usd_balance",
+    "ftm_balance",
+    "ftm_value",
     sep=",",
 )
 
@@ -211,6 +234,9 @@ def exchange_loop(exchange):
     binance_busd = binance_balances["BUSD"]
     BALANCES["BUSD"] = float(binance_busd["total"])
 
+    binance_ftm = binance_balances["FTM"]
+    BALANCES["FTM"] = float(binance_ftm["total"])
+
     binance_eth = binance_balances["ETH"]
     BALANCES["ETH"] = float(binance_eth["total"])
     metamask_eth = get_metamask_eth_balance()
@@ -224,6 +250,9 @@ def exchange_loop(exchange):
     eth_price = tickers.loc["ETH/BUSD", "last"].item()
     BALANCES_USD["ETH"] = eth_price * BALANCES["ETH"]
 
+    ftm_price = tickers.loc["FTM/BUSD", "last"].item()
+    BALANCES_USD["FTM"] = ftm_price * BALANCES["FTM"]
+
     BALANCES_USD["BUSD"] = BALANCES["BUSD"]
 
     date, time_secs = ctime(), time()
@@ -235,6 +264,8 @@ def exchange_loop(exchange):
         BALANCES["ETH"],
         BALANCES_USD["ETH"],
         BALANCES["BUSD"],
+        BALANCES["FTM"],
+        BALANCES_USD["FTM"],
         sep=",",
     )
 
@@ -266,15 +297,16 @@ def make_chart():
     data.index = pandas.to_datetime(data.index, unit="s")
     data = data.astype(float)
 
-    data = data.iloc[-500000:].ffill().resample("5min").agg("last").ffill()
+    data = data.iloc[-500000:].ffill().bfill().resample("5min").agg("last").ffill()
 
-    total_usd = data.btc_value + data.usd_balance + data.eth_value
+    total_usd = data.btc_value + data.usd_balance + data.eth_value +  data.ftm_value
     btc_pct = data.btc_value / total_usd
     eth_pct = data.eth_value / total_usd
+    ftm_pct = data.ftm_value / total_usd
 
     ############### ALLOCATION PCT TIME SERIES
     fig = make_subplots(
-        rows=2, cols=1, subplot_titles=("BTC alloc pct", "ETH alloc pct")
+        rows=3, cols=1, subplot_titles=("BTC alloc pct", "ETH alloc pct", "FTM alloc pct")
     )
 
     fig.add_trace(go.Scatter(x=btc_pct.index, y=btc_pct), row=1, col=1)
@@ -310,6 +342,25 @@ def make_chart():
         row=2,
         col=1,
     )
+
+
+    fig.add_trace(go.Scatter(x=ftm_pct.index, y=ftm_pct), row=3, col=1)
+    fig.add_hline(
+        CONSTRAINTS["FTM"]["ratio"] * (1 + CONSTRAINTS["FTM"]["tolerance"]),
+        line_dash="dash",
+        opacity=0.5,
+        row=3,
+        col=1,
+    )
+    fig.add_hline(CONSTRAINTS["FTM"]["ratio"], opacity=0.5, row=2, col=1)
+    fig.add_hline(
+        CONSTRAINTS["FTM"]["ratio"] * (1 - CONSTRAINTS["FTM"]["tolerance"]),
+        line_dash="dash",
+        opacity=0.5,
+        row=3,
+        col=1,
+    )
+
     # add traces for annotations and text for end of lines
     for i, d in enumerate(fig.data):
         fig.add_scatter(
@@ -329,7 +380,7 @@ def make_chart():
     fig.write_image("latest_chart.jpg", width="800", height="1000")
 
     ############### ASSET USD VALUE TIME SERIES
-    portfolio_value = data[["btc_value", "eth_value", "usd_balance"]].sum(
+    portfolio_value = data[["btc_value", "eth_value", "usd_balance",  "ftm_value"]].sum(
         axis="columns"
     )
 
@@ -339,6 +390,7 @@ def make_chart():
 
     fig.add_trace(go.Scatter(x=data.index, y=data.btc_value), row=1, col=1)
     fig.add_trace(go.Scatter(x=data.index, y=data.eth_value), row=1, col=1)
+    fig.add_trace(go.Scatter(x=data.index, y=data.ftm_value), row=1, col=1)
 
     # add traces for annotations and text for end of lines
     for i, d in enumerate(fig.data):
