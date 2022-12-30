@@ -178,7 +178,7 @@ def perform_actions(exchange, actions):
             coin, quote = symbol.split("/")
 
             if 'ma_timeframe' in params:
-                ma_timeframe = params['ma_timeframe']
+                ma_timeframe = params.pop('ma_timeframe')
             else:
                 ma_timeframe = '1m'
             print("choosing ma_timeframe = ", ma_timeframe, "for symbol", symbol, file=sys.stderr)
