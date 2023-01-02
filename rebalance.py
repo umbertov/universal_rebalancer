@@ -52,6 +52,11 @@ ETHEREUM_RPC = "https://rpc.builder0x69.io"
 arbi = Web3(Web3.HTTPProvider(ARBI_RPC))
 ethereum = Web3(Web3.HTTPProvider(ETHEREUM_RPC))
 
+def printerr(*args, **kwargs):
+    kwargs['file'] = sys.stderr
+    print(*args, **kwargs)
+
+
 
 def get_metamask_eth_balance():
     arbi_eth = get_ether_balance(arbi)
@@ -75,7 +80,7 @@ BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0, "FTM": 0}
 
 CONSTRAINTS = {
     "BTC": {
-        "ratio": 0.5,
+        "ratio": 0.55,
         "tolerance": 0.06,
         "overAction": dict(
             symbol=f"BTC/BUSD",
@@ -91,7 +96,7 @@ CONSTRAINTS = {
         ),
     },
     "ETH": {
-        "ratio": 0.2,
+        "ratio": 0.25,
         "tolerance": 0.1,
         "overAction": dict(
             symbol=f"ETH/BUSD",
@@ -153,9 +158,8 @@ def check_constraints(
         upper_ratio = ratio * (1 + tolerance)
         lower_ratio = ratio * (1 - tolerance)
 
-        print(
+        printerr(
             f"{coin} current ratio: {actual_ratio:.3f}, target: between {lower_ratio:.3f} and {upper_ratio:.3f}",
-            file=sys.stderr,
         )
 
         if actual_ratio > upper_ratio:
@@ -171,17 +175,22 @@ def check_constraints(
 def perform_actions(exchange, actions):
     res = []
     for key, params in actions.items():
-        print(ctime(), key, end="\n\t", file=sys.stderr)
-        print(*params.items(), sep="\n\t", file=sys.stderr)
+        printerr(ctime(), key, end="\n\t")
+        printerr(*params.items(), sep="\n\t")
         if params and not DRY_RUN:
             symbol, side = params["symbol"], params["side"]
             coin, quote = symbol.split("/")
 
+            # if 'FTM' in symbol:
+            #     import ipdb ; ipdb.set_trace()
+
             if 'ma_timeframe' in params:
                 ma_timeframe = params.pop('ma_timeframe')
             else:
+                if 'FTM' in symbol:
+                    printerr(f"WTF, {params}")
                 ma_timeframe = '1m'
-            print("choosing ma_timeframe = ", ma_timeframe, "for symbol", symbol, file=sys.stderr)
+            printerr("choosing ma_timeframe = ", ma_timeframe, "for symbol", symbol)
 
             ohlcv = DataFrame(exchange.fetch_ohlcv(symbol, timeframe=ma_timeframe))
             close = ohlcv[4]
@@ -204,9 +213,8 @@ def perform_actions(exchange, actions):
                     asyncio.run(telegram_notify_action(params))
                     res.append(order)
             else:
-                print(
+                printerr(
                     f"not sending action because ratio is {ratio.iloc[-1]}",
-                    file=sys.stderr,
                 )
 
     return res
@@ -429,8 +437,8 @@ while True:
     try:
         exchange_loop(binance)
     except Exception as e:
-        print(f"{ctime()} ERROR:", file=sys.stderr)
+        printerr(f"{ctime()} ERROR:")
         traceback.print_exc(file=sys.stderr)
-        print("..................................................", file=sys.stderr)
+        printerr("..................................................")
         sleep(CHECK_INTERVAL_SECONDS)
-        print(ctime(), "resuming", file=sys.stderr)
+        printerr(ctime(), "resuming")
