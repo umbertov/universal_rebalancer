@@ -80,8 +80,8 @@ BALANCES_USD: dict[str, float] = {"BTC": 0, "ETH": 0, "BUSD": 0.0, "FTM": 0}
 
 CONSTRAINTS = {
     "BTC": {
-        "ratio": 0.55,
-        "tolerance": 0.06,
+        "ratio": 0.50,
+        "tolerance": 0.04,
         "overAction": dict(
             symbol=f"BTC/BUSD",
             amount=0.0008,
@@ -96,7 +96,7 @@ CONSTRAINTS = {
         ),
     },
     "ETH": {
-        "ratio": 0.25,
+        "ratio": 0.22,
         "tolerance": 0.1,
         "overAction": dict(
             symbol=f"ETH/BUSD",
@@ -163,9 +163,9 @@ def check_constraints(
         )
 
         if actual_ratio > upper_ratio:
-            action = thing["overAction"]
+            action = thing["overAction"].copy()
         elif actual_ratio < lower_ratio:
-            action = thing["underAction"]
+            action = thing["underAction"].copy()
         else:
             action = dict()
         result[coin] = action
@@ -315,6 +315,7 @@ def make_chart():
     data = data.iloc[-500000:].ffill().bfill().resample("5min").agg("last").ffill()
 
     total_usd = data.btc_value + data.usd_balance + data.eth_value +  data.ftm_value
+
     btc_pct = data.btc_value / total_usd
     eth_pct = data.eth_value / total_usd
     ftm_pct = data.ftm_value / total_usd
@@ -406,6 +407,7 @@ def make_chart():
     fig.add_trace(go.Scatter(x=data.index, y=data.btc_value), row=1, col=1)
     fig.add_trace(go.Scatter(x=data.index, y=data.eth_value), row=1, col=1)
     fig.add_trace(go.Scatter(x=data.index, y=data.ftm_value), row=1, col=1)
+    fig.add_trace(go.Scatter(x=data.index, y=data.usd_balance), row=1, col=1)
 
     # add traces for annotations and text for end of lines
     for i, d in enumerate(fig.data):
